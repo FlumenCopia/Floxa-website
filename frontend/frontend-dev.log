@@ -1,0 +1,32 @@
+
+> floxa-platform@0.1.0 dev
+> next dev
+
+   ▲ Next.js 15.5.19
+   - Local:        http://localhost:3001
+   - Network:      http://172.18.128.1:3001
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 6.5s
+ ○ Compiling / ...
+ ✓ Compiled / in 7.9s (580 modules)
+ GET / 200 in 9487ms
+ GET / 200 in 238ms
+ ○ Compiling /auth/login ...
+ ✓ Compiled /auth/login in 4.5s (620 modules)
+ GET /auth/login 200 in 5276ms
+ ○ Compiling /dashboard ...
+ ✓ Compiled /dashboard in 2.8s (676 modules)
+ GET /dashboard 200 in 3540ms
+ ○ Compiling /dashboard/settings ...
+ ✓ Compiled /dashboard/settings in 4.8s (697 modules)
+ GET /dashboard/portfolio 200 in 6968ms
+ GET /dashboard/settings 200 in 6965ms
+ GET /dashboard/projects 200 in 6981ms
+ GET /auth/login 200 in 252ms
+ GET /auth/login?next=%2Fdashboard 200 in 254ms
+ GET /dashboard 200 in 181ms
+ GET /dashboard/projects 200 in 1120ms
+ GET /dashboard/portfolio 200 in 1122ms
+ GET /dashboard/settings 200 in 1097ms

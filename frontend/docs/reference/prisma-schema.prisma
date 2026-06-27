@@ -1,0 +1,443 @@
+// Archived reference from the pre-Django FLOXA implementation.
+// This file is documentation only and is not active production schema code.
+// FLOXA Platform — Complete Database Schema
+// Run: npx prisma db push && npx prisma generate
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ════════════════════════════════════════════
+// ENUMS
+// ════════════════════════════════════════════
+
+enum UserRole {
+  CONSULTANT
+  CLIENT
+  TEAM_MEMBER
+}
+
+enum ProjectSector {
+  BRAND_IDENTITY
+  DIGITAL_MARKETING
+  UI_UX_DESIGN
+  IT_DEVELOPMENT
+  CONTENT_VIDEO
+  EVENTS
+  ARCHITECTURE
+  PHOTOGRAPHY
+}
+
+enum ProjectStatus {
+  CREATED
+  PROFILE_COMPLETE
+  DISCOVERY_COMPLETE
+  VISUAL_SELECTED
+  AGREEMENT_SENT
+  AGREEMENT_SIGNED
+  ADVANCE_PAID
+  MOODBOARD_UPLOADED
+  MOODBOARD_SELECTED
+  CONCEPTS_UPLOADED
+  CONCEPT_APPROVED
+  MID_PAID
+  FINAL_UPLOADED
+  FINAL_APPROVED
+  FINAL_PAID
+  DELIVERED
+  ARCHIVED
+}
+
+enum PaymentStatus {
+  PENDING
+  INITIATED
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum PaymentGateway {
+  RAZORPAY
+  STRIPE
+  MANUAL
+}
+
+enum NotificationType {
+  PROJECT_CREATED
+  PROFILE_COMPLETE
+  DISCOVERY_COMPLETE
+  MOODBOARD_SELECTED
+  CONCEPT_APPROVED
+  CONCEPT_REJECTED
+  PAYMENT_RECEIVED
+  AGREEMENT_SIGNED
+  FINAL_APPROVED
+  PROJECT_DELIVERED
+  REWORK_REQUESTED
+  CUSTOM
+}
+
+enum ConceptStatus {
+  PENDING
+  PINNED
+  SELECTED
+  REJECTED
+}
+
+// ════════════════════════════════════════════
+// MODELS
+// ════════════════════════════════════════════
+
+model User {
+  id               String    @id @default(cuid())
+  firebaseUid      String?   @unique
+  email            String    @unique
+  name             String?
+  phone            String?
+  avatarUrl        String?
+  role             UserRole  @default(CLIENT)
+  
+  // Consultant fields
+  companyName      String?
+  portfolioSlug    String?   @unique
+  plan             String    @default("free")
+  planExpiresAt    DateTime?
+  
+  // Branding (white-label)
+  brandPrimaryColor   String  @default("#0A1912")
+  brandSecondaryColor String  @default("#1C342E")
+  brandAccentColor    String  @default("#89ACA0")
+  brandNeonColor      String  @default("#4DFFA0")
+  clientPortalHeading String  @default("Discover Your Brand Clarity.")
+  
+  // Settings
+  emailNotifications    Boolean @default(true)
+  whatsappNotifications Boolean @default(false)
+  autoNotifyOnAction    Boolean @default(true)
+  
+  // Timestamps
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  lastActiveAt     DateTime?
+
+  // Relations
+  consultantProjects Project[] @relation("ConsultantProjects")
+  clientProjects     Project[] @relation("ClientProjects")
+  notifications      Notification[]
+  activityLogs       ActivityLog[]
+  
+  @@map("users")
+}
+
+model Project {
+  id           String        @id @default(cuid())
+  name         String
+  sector       ProjectSector @default(BRAND_IDENTITY)
+  status       ProjectStatus @default(CREATED)
+  completionPct Int           @default(0)
+  
+  // Parties
+  consultantId String
+  consultant   User    @relation("ConsultantProjects", fields: [consultantId], references: [id])
+  clientId     String?
+  client       User?   @relation("ClientProjects", fields: [clientId], references: [id])
+  
+  // Client access
+  clientAccessToken String  @unique @default(cuid())
+  clientPortalUrl   String?
+  clientEmail       String?
+  clientNote        String?
+  
+  // Financial
+  projectValue      Float    @default(0)
+  splitAdvancePct   Int      @default(50)
+  splitMidPct       Int      @default(30)
+  splitFinalPct     Int      @default(20)
+  freeRevisions     Int      @default(2)
+  reworkUsed        Int      @default(0)
+  extraRevisionCost Float    @default(5000)
+  gateFilesBehindPayment Boolean @default(true)
+  
+  // Branding override (per-project)
+  customBranding   Boolean @default(false)
+  
+  // Portfolio
+  publishedToPortfolio Boolean   @default(false)
+  publishedAt          DateTime?
+  portfolioSlug        String?
+  showClientName       Boolean   @default(true)
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  brandDNA      BrandDNA?
+  payments      Payment[]
+  moodboards    Moodboard[]
+  concepts      Concept[]
+  deliverables  Deliverable[]
+  notifications Notification[]
+  activityLogs  ActivityLog[]
+  agreement     Agreement?
+  notes         ProjectNote[]
+  
+  @@map("projects")
+}
+
+model BrandDNA {
+  id        String @id @default(cuid())
+  projectId String @unique
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  // Business basics (client fills)
+  whatDo         String?
+  targetCustomer String?
+  whyChooseUs    String?
+  
+  // Personality sliders (client — -3 to +3)
+  s_playfulSerious          Int @default(0)
+  s_unconventionalMainstream Int @default(0)
+  s_industrialNatural       Int @default(0)
+  s_approachableElite       Int @default(0)
+  s_casualElegant           Int @default(0)
+  s_refinedStrong           Int @default(0)
+  s_feminineMasculine       Int @default(0)
+  s_simpleComplex           Int @default(0)
+  s_youthfulEstablished     Int @default(0)
+  s_subtleBright            Int @default(0)
+  s_classicContemporary     Int @default(0)
+  s_friendlyAuthoritative   Int @default(0)
+  s_economicalExpensive     Int @default(0)
+  
+  // Consultant slider values
+  c_playfulSerious          Int @default(0)
+  c_unconventionalMainstream Int @default(0)
+  c_industrialNatural       Int @default(0)
+  c_approachableElite       Int @default(0)
+  c_casualElegant           Int @default(0)
+  c_refinedStrong           Int @default(0)
+  c_feminineMasculine       Int @default(0)
+  c_simpleComplex           Int @default(0)
+  c_youthfulEstablished     Int @default(0)
+  c_subtleBright            Int @default(0)
+  c_classicContemporary     Int @default(0)
+  c_friendlyAuthoritative   Int @default(0)
+  c_economicalExpensive     Int @default(0)
+  
+  // Emotions (stored as JSON array)
+  emotions              Json @default("[]")
+  
+  // Audience
+  audienceArchetype     String?
+  
+  // Competitors (JSON array of {name, rating, reason})
+  competitors           Json @default("[]")
+  
+  // Visual direction
+  visualStyles          Json @default("[]")
+  
+  // Generated fields (Cloud Function / AI)
+  personalityCluster    String?
+  audienceProfile       String?
+  positioningGap        String?
+  toneArchetype         String?
+  toneDescriptors       Json @default("[]")
+  toneDos               Json @default("[]")
+  toneDonts             Json @default("[]")
+  brandArchetype        String?
+  positioningStatement  String?
+  taglineOptions        Json @default("[]")
+  selectedTagline       String?
+  brandPromise          String?
+  emotionSummary        String?
+  visualBrief           String?
+  
+  // Client profile
+  clientName       String?
+  clientCompany    String?
+  clientIndustry   String?
+  clientYearStart  Int?
+  clientLocation   String?
+  clientPhone      String?
+  clientEmail      String?
+  clientWebsite    String?
+  
+  // Consultant notes
+  consultantNotes  String?
+  clientNotes      String?
+  
+  generatedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("brand_dna")
+}
+
+model Moodboard {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  name       String
+  keywords   Json   @default("[]")
+  imageUrls  Json   @default("[]")
+  coverUrl   String?
+  sortOrder  Int    @default(1)
+  
+  clientSelected Boolean   @default(false)
+  selectedAt     DateTime?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("moodboards")
+}
+
+model Concept {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  round          Int    @default(1)
+  optionNumber   Int    @default(1)
+  title          String
+  description    String?
+  mockupUrls     Json   @default("[]")
+  logoUrl        String?
+  colorPalette   Json   @default("[]")
+  typographyNote String?
+  
+  clientStatus  ConceptStatus @default(PENDING)
+  clientComment String?
+  selectedAt    DateTime?
+  rejectedAt    DateTime?
+  reworkNote    String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("concepts")
+}
+
+model Deliverable {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  category   String
+  label      String
+  fileUrl    String?
+  previewUrl String?
+  fileSize   Int?
+  fileFormat String?
+  gated      Boolean  @default(true)
+  
+  uploadedAt   DateTime?
+  downloadedAt DateTime?
+  downloadCount Int @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("deliverables")
+}
+
+model Payment {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  type       String  // advance | mid | final
+  amount     Float
+  percentage Int
+  status     PaymentStatus  @default(PENDING)
+  gateway    PaymentGateway @default(RAZORPAY)
+  
+  gatewayOrderId  String?
+  gatewayPaymentId String?
+  gatewaySignature String?
+  
+  invoiceUrl String?
+  paidAt     DateTime?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("payments")
+}
+
+model Agreement {
+  id        String  @id @default(cuid())
+  projectId String  @unique
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  pdfUrl              String?
+  consultantSignedAt  DateTime?
+  clientSignedAt      DateTime?
+  clientSignatureIp   String?
+  consultantSignatureIp String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("agreements")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId String?
+  project   Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  
+  type      NotificationType
+  title     String
+  body      String
+  read      Boolean @default(false)
+  
+  emailSent     Boolean @default(false)
+  whatsappSent  Boolean @default(false)
+  
+  actionUrl String?
+  
+  createdAt DateTime @default(now())
+  readAt    DateTime?
+  
+  @@map("notifications")
+}
+
+model ActivityLog {
+  id        String  @id @default(cuid())
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  action    String
+  details   String?
+  metadata  Json?
+  
+  createdAt DateTime @default(now())
+  
+  @@map("activity_logs")
+}
+
+model ProjectNote {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  type    String  // internal | client
+  content String
+  author  String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("project_notes")
+}
